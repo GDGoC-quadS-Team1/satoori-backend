@@ -38,6 +38,11 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-test'
 }
 
+// Java 컴파일 옵션 추가
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-parameters']
+}
+
 test {
     useJUnitPlatform()
 }
