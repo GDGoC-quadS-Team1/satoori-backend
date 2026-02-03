@@ -18,25 +18,34 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private final JwtTokenProvider jwtTokenProvider;
+    private final JwtTokenProvider jwtTokenProvider; // JWT 토큰 생성하는 Provider
+
+    private static final String REDIRECT_URI = "http://localhost:3000/oauth2/redirect"; // 로그인 성공 후 토큰을 전달할 프론트엔드 URL
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
-                                        Authentication authentication) throws IOException, ServletException {
+                                        Authentication authentication)
+            throws IOException, ServletException {
 
-        CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
+        if (!(authentication.getPrincipal() instanceof CustomOAuth2User oAuth2User)) {
+            throw new IllegalStateException("OAuth2User 타입이 아닙니다.");
+        }
+
         String email = oAuth2User.getEmail();
 
         // JWT 토큰 생성
         String token = jwtTokenProvider.generateTokenFromEmail(email);
 
-        log.info("OAuth2 login success - Email: {}, Token generated", email);
+        // 토큰 로그 출력 (디버깅 용도)
+        log.info("OAuth2 login success - Email: {}", email);
+        log.info("JWT Token: {}", token);
 
-        // 프론트엔드로 리다이렉트 (토큰을 쿼리 파라미터로 전달)
-        String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:3000/oauth2/redirect")
+        // 프론트엔드로 리다이렉트 (토큰 전달)
+        String targetUrl = UriComponentsBuilder.fromUriString(REDIRECT_URI)
                 .queryParam("token", token)
-                .build().toUriString();
+                .build()
+                .toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
