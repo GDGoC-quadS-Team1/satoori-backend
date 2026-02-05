@@ -3,8 +3,13 @@ package com.satoori.domain.user.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 
 // 사용자 정보 저장 User 엔티티
 @Entity
@@ -14,7 +19,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+
+// Spring Security UserDetails 구현
+public class User implements UserDetails {
 
     // 사용자 고유 ID (PK)
     @Id
@@ -50,6 +57,43 @@ public class User {
     // OAuth2 사용자 고유 ID
     @Column(name = "provider_id")
     private String providerId;
+
+    // UserDetails 구현 메서드
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        // 권한 정보를 Spring Security가 인식할 수 있는 SimpleGrantedAuthority로 변환 ('ROLE_USER', 'ROLE_ADMIN' 형태)
+        return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
+    }
+
+    @Override
+    public String getPassword() {
+        return null;
+    }
+
+    @Override
+    public String getUsername() {
+        return this.email;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
 
     // 사용자 권한 enum
     public enum Role {

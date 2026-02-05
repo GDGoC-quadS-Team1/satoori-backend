@@ -6,6 +6,8 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Entity
@@ -67,7 +69,12 @@ public class Dialect {
     @Column(name = "longitude")
     private Double longitude; // 경도
 
-    //좌표 자동 설정
+    // 방언에 연결된 북마크 목록 (방언 삭제 시 함께 삭제)
+    @OneToMany(mappedBy = "dialect", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<DialectBookmark> bookmarks = new ArrayList<>();
+
+    // 좌표 자동 설정
     @PrePersist
     @PreUpdate
     private void setDefaultCoordinates() {
@@ -78,15 +85,16 @@ public class Dialect {
         }
     }
 
+    // 좌표 자동 설정 로직 (경상도만 분리)
     private static double[] getDefaultCoordinatesForRegion(String region) {
+        if (region == null) return new double[]{37.5665, 126.9780}; // 기본값: 서울
+
         Map<String, double[]> regionCoords = Map.of(
                 "서울", new double[]{37.5665, 126.9780},
                 "경기도", new double[]{37.4138, 127.5183},
                 "강원도", new double[]{37.8228, 128.1555},
-                "충청북도", new double[]{36.6357, 127.4917},
-                "충청남도", new double[]{36.5184, 126.8000},
-                "전라북도", new double[]{35.7175, 127.1530},
-                "전라남도", new double[]{34.8679, 126.9910},
+                "충청도", new double[]{36.6357, 127.4917},
+                "전라도", new double[]{35.7175, 127.1530},
                 "경상북도", new double[]{36.4919, 128.8889},
                 "경상남도", new double[]{35.4606, 128.2132},
                 "제주도", new double[]{33.4996, 126.5312}

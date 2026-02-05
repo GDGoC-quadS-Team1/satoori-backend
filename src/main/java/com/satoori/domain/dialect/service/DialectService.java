@@ -179,10 +179,22 @@ public class DialectService {
         return bookmarks.map(bookmark -> DialectResponse.from(bookmark.getDialect(), true));
     }
 
+    // 관리자 승인 처리
     @Transactional
     public void verifyDialect(Long dialectId) {
         Dialect dialect = dialectRepository.findById(dialectId)
                 .orElseThrow(() -> new RuntimeException("해당 방언이 존재하지 않습니다."));
         dialect.setVerified(true);
+    }
+
+    // 방언 삭제
+    @Transactional
+    public void deleteDialect(Long dialectId) {
+        // 해당 방언이 존재하는지 확인
+        Dialect dialect = dialectRepository.findById(dialectId)
+                .orElseThrow(() -> new RuntimeException("해당 방언이 존재하지 않습니다."));
+
+        // 삭제 실행
+        dialectRepository.delete(dialect);
     }
 }

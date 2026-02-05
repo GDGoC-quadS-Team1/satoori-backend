@@ -93,8 +93,6 @@ public class DialectController {
     @GetMapping("/map/points")
     public ResponseEntity<List<DialectMapPoint>> getMapPoints(
             @RequestParam(name = "region", required = false) String region) {
-        System.out.println(">>> region param: [" + region + "]");  // 임시 로그
-
         List<DialectMapPoint> points = dialectService.getDialectMapPoints(region);
         return ResponseEntity.ok(points);
     }
@@ -131,7 +129,7 @@ public class DialectController {
         return ResponseEntity.ok(bookmarks);
     }
 
-    // 방언 검증 (관리자용)
+    // 방언 검증/승인 (관리자용)
     @PatchMapping("/{dialectId}/verify")
     public ResponseEntity<String> verifyDialect(
             @PathVariable("dialectId") Long dialectId,
@@ -143,5 +141,23 @@ public class DialectController {
 
         dialectService.verifyDialect(dialectId);
         return ResponseEntity.ok("Dialect verified");
+    }
+
+    // 방언 삭제 (관리자 또는 등록자)
+    @DeleteMapping("/{dialectId}")
+    public ResponseEntity<Void> deleteDialect(
+            @PathVariable("dialectId") Long dialectId,
+            @AuthenticationPrincipal User user
+    ) {
+        // 권한 체크 로직을 서비스에 두거나 여기서 직접 확인할 수 있다.
+        // ex. 관리자만 삭제 가능하게 하려면 아래 코드 활성화
+        /*
+        if (user.getRole() != User.Role.ADMIN) {
+            return ResponseEntity.status(403).build();
+        }
+        */
+
+        dialectService.deleteDialect(dialectId);
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 }

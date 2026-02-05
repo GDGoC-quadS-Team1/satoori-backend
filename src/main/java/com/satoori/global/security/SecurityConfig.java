@@ -29,40 +29,47 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/oauth2/**", "/login/**").permitAll() // 공개 접근
+                        // 로그인 없이 접근 가능
+                        .requestMatchers(
+                                "/", "/login",
+                                "/index.html", "/login.html",
+                                "/css/**", "/js/**", "/images/**",
+                                "/oauth2/**", "/login/oauth2/**"
+                        ).permitAll()
 
-                        .requestMatchers(HttpMethod.GET, "/api/dictionary/**").permitAll() // 방언 사전 조회는 비회원도 허용
+                        // 공개 API
+                        .requestMatchers("/api/translate/**").permitAll()                                  // AI 사투리 도사 API
+                        .requestMatchers(HttpMethod.GET, "/api/dictionary/**").permitAll()                 // 방언 사전 조회는 비회원 가능
+                        .requestMatchers("/error").permitAll()                                             // Spring Boot 에러 페이지
 
-                        // 북마크는 로그인 필요 → 토큰 없으면 401
-                        .requestMatchers(HttpMethod.POST, "/api/dictionary/*/bookmark").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/dictionary/*/bookmark").authenticated()
+                        // 로그인 필요
+                        .requestMatchers(HttpMethod.POST, "/api/dictionary/*/bookmark").authenticated()    // 북마크 추가
+                        .requestMatchers(HttpMethod.DELETE, "/api/dictionary/*/bookmark").authenticated()  // 북마크 제거
 
-                        .requestMatchers(HttpMethod.PATCH, "/api/dictionary/*/verify").hasRole("ADMIN") // 방언 검증은 ADMIN만 → 일반 유저면 403
+                        // ADMIN 권한 필요
+                        .requestMatchers(HttpMethod.PATCH, "/api/dictionary/*/verify").hasRole("ADMIN")    // 방언 검증
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")                                 // 관리자 경로
 
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN") // 관리자 전용 경로
-
+                        // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
-
-                // OAuth2 로그인 처리 설정
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->
-                                userInfo.userService(customOAuth2UserService))
-                        .successHandler(oAuth2AuthenticationSuccessHandler) // 로그인 성공 시 JWT 발급 + 리다이렉트
+                                userInfo.userService(customOAuth2UserService)
+                        )
+                        .successHandler(oAuth2AuthenticationSuccessHandler) // 로그인 성공 시 JWT 발급
                 )
-
-                // 인증 실패 및 인가 실패 처리 핸들링
                 .exceptionHandling(exceptions -> exceptions
+                        // 인증 실패 시
                         .authenticationEntryPoint((req, res, ex) -> {
-                            // API 요청이면 JSON 401
                             if (req.getRequestURI().startsWith("/api/")) {
                                 res.setStatus(401);
                                 res.setContentType("application/json");
                                 res.getWriter().write("{\"message\": \"Unauthorized\"}");
                             } else {
-                                // API 아닌 경로는 OAuth2 로그인으로 리다이렉트
                                 res.sendRedirect("/oauth2/authorization/google");
                             }
                         })

@@ -16,6 +16,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   sql:
     init:
@@ -42,3 +43,10 @@ spring:
 jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000
+
+# AI 사투리 도사 외부 서버 URL 설정
+satoori:
+  langchain:
+    url: ${LANGCHAIN_URL:http://localhost:8081}
+  tts:
+    url: ${TTS_URL:http://localhost:8082}
