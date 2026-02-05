@@ -1,5 +1,6 @@
 package com.satoori.domain.user.service;
 
+import com.satoori.domain.user.dto.UserResponse;
 import com.satoori.domain.user.entity.User;
 import com.satoori.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +16,17 @@ public class UserService {
     // 사용자 지역(region) 정보 업데이트
     @Transactional
     public User updateRegion(Long userId, String region) {
-        // userId로 사용자 조회, 없으면 예외 발생
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setRegion(region); // 지역 정보 수정
         return userRepository.save(user);
+    }
+
+    // 사용자 조회
+    @Transactional(readOnly = true)
+    public UserResponse getUserById(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        return UserResponse.from(user);
     }
 }

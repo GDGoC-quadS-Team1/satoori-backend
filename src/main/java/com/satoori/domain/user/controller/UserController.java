@@ -27,7 +27,7 @@ public class UserController {
     @PatchMapping("/me/region")
     public ResponseEntity<UserResponse> updateRegion(
             @AuthenticationPrincipal User user,
-            @RequestParam String region) {
+            @RequestParam("region") String region) { // 쿼리 파라미터 'region'을 문자열로 받음
         User updatedUser = userService.updateRegion(user.getUserId(), region);
         return ResponseEntity.ok(UserResponse.from(updatedUser));
     }
