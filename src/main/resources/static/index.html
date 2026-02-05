@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satoori - 디지털 방언 유물관</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 60px 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            margin: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        .btn-secondary:hover {
+            background: #f8f9ff;
+            transform: translateY(-2px);
+        }
+        .features {
+            margin-top: 40px;
+            text-align: left;
+        }
+        .feature-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9ff;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .feature-item h3 {
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .feature-item p {
+            color: #666;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🗺️ Satoori</h1>
+    <p class="subtitle">디지털 방언 유물관</p>
+
+    <div>
+        <a href="/login" class="btn btn-primary">로그인 / 회원가입</a>
+        <button onclick="testTranslate()" class="btn btn-secondary">AI 사투리 도사 테스트</button>
+    </div>
+
+    <div class="features">
+        <div class="feature-item">
+            <h3>🤖 AI 사투리 도사</h3>
+            <p>표준어를 지역 사투리로 변환하고 음성으로 들어보세요</p>
+        </div>
+        <div class="feature-item">
+            <h3>📚 방언 사전</h3>
+            <p>전국 방언을 검색하고 의미를 확인할 수 있습니다</p>
+        </div>
+        <div class="feature-item">
+            <h3>🗺️ 지역별 탐색</h3>
+            <p>지도를 통해 각 지역의 고유한 방언을 탐색하세요</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function testTranslate() {
+        const text = prompt('변환할 문장을 입력하세요:', '우리가 왔다고 전해. 우린 엄청 멋져.');
+        if (!text) return;
+
+        const region = prompt('지역을 선택하세요:\nJEONRA (전라도)\nGYEONGSANG_BUKDO (경상북도)\nGYEONGSANG_NAMDO (경상남도)\nCHUNGCHEONGDO (충청도)\nJEJU (제주도)', 'JEONRA');
+        if (!region) return;
+
+        try {
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, region })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert(`✅ 변환 성공!\n\n원문: ${result.original}\n변환: ${result.converted}\n지역: ${result.regionDisplayName}\n\n음성 URL: ${result.audioUrl}`);
+            } else {
+                alert(`❌ 에러: ${result.message}`);
+            }
+        } catch (error) {
+            alert('❌ 서버 연결 실패: ' + error.message);
+        }
+    }
+</script>
+</body>
+</html>
