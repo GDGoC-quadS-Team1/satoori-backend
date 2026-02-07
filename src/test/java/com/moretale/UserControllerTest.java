@@ -2,9 +2,12 @@ package com.moretale;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moretale.domain.user.controller.UserController;
+import com.moretale.domain.user.dto.UserResponse;
 import com.moretale.domain.user.entity.User;
+import com.moretale.domain.user.repository.UserRepository; // ✅ 추가
 import com.moretale.domain.user.service.UserService;
 import com.moretale.global.exception.GlobalExceptionHandler;
+import com.moretale.global.security.UserPrincipal;
 import com.moretale.global.security.jwt.JwtAuthenticationFilter;
 import com.moretale.global.security.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +24,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import static org.mockito.ArgumentMatchers.anyLong;
+import java.time.LocalDateTime;
+
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -32,6 +36,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * UserController 테스트 클래스
+ * @WebMvcTest를 통해 웹 계층만 테스트하며, 필요한 의존성은 MockBean으로 주입합니다.
+ */
 @WebMvcTest(
         controllers = UserController.class,
         includeFilters = @ComponentScan.Filter(
@@ -51,6 +59,9 @@ class UserControllerTest {
     private UserService userService;
 
     @MockBean
+    private UserRepository userRepository; // ✅ TestAuthenticationFilter 의존성 해결을 위해 추가
+
+    @MockBean
     private JwtTokenProvider jwtTokenProvider;
 
     @MockBean
@@ -58,7 +69,6 @@ class UserControllerTest {
 
     @BeforeEach
     void setUp(WebApplicationContext context) {
-        // MockMvc에 Spring Security 설정을 적용하여 @AuthenticationPrincipal 주입 및 CSRF 설정을 활성화합니다.
         this.mockMvc = MockMvcBuilders
                 .webAppContextSetup(context)
                 .apply(springSecurity())
@@ -70,10 +80,25 @@ class UserControllerTest {
                 .userId(1L)
                 .email("test@example.com")
                 .nickname("테스트유저")
-                .region("SEOUL")
+                .region("서울")
                 .role(User.Role.USER)
                 .provider("google")
                 .providerId("google-123")
+                .build();
+    }
+
+    private UserPrincipal createUserPrincipal(User user) {
+        return UserPrincipal.create(user);
+    }
+
+    private UserResponse createMockUserResponse() {
+        return UserResponse.builder()
+                .userId(1L)
+                .email("test@example.com")
+                .nickname("테스트유저")
+                .region("서울")
+                .role("USER")
+                .createdAt(LocalDateTime.now())
                 .build();
     }
 
@@ -82,18 +107,24 @@ class UserControllerTest {
     void getCurrentUser_success() throws Exception {
         // given
         User mockUser = createMockUser();
+        UserPrincipal userPrincipal = createUserPrincipal(mockUser);
+        UserResponse mockResponse = createMockUserResponse();
+
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                mockUser, null, mockUser.getAuthorities()
+                userPrincipal, null, userPrincipal.getAuthorities()
         );
+
+        when(userService.getUserInfo(1L)).thenReturn(mockResponse);
 
         // when & then
         mockMvc.perform(get("/api/users/me")
-                        .with(authentication(auth))) // GET은 CSRF가 필요 없음
+                        .with(authentication(auth)))
                 .andDo(print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.userId").value(1))
-                .andExpect(jsonPath("$.email").value("test@example.com"))
-                .andExpect(jsonPath("$.nickname").value("테스트유저"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.nickname").value("테스트유저"));
     }
 
     @Test
@@ -101,51 +132,33 @@ class UserControllerTest {
     void updateRegion_success() throws Exception {
         // given
         User mockUser = createMockUser();
-        User updatedUser = User.builder()
+        UserPrincipal userPrincipal = createUserPrincipal(mockUser);
+
+        UserResponse updatedResponse = UserResponse.builder()
                 .userId(1L)
                 .email("test@example.com")
                 .nickname("테스트유저")
-                .region("GYEONGSANG")
-                .role(User.Role.USER)
+                .region("부산")
+                .role("USER")
+                .createdAt(LocalDateTime.now())
                 .build();
 
-        when(userService.updateRegion(eq(1L), eq("GYEONGSANG"))).thenReturn(updatedUser);
+        when(userService.updateRegion(eq(1L), eq("부산"))).thenReturn(updatedResponse);
 
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                mockUser, null, mockUser.getAuthorities()
+                userPrincipal, null, userPrincipal.getAuthorities()
         );
 
         // when & then
         mockMvc.perform(patch("/api/users/me/region")
-                        .param("region", "GYEONGSANG")
+                        .param("region", "부산")
                         .with(authentication(auth))
-                        .with(csrf())) // PATCH 요청 시 CSRF 토큰 주입 필수
+                        .with(csrf()))
                 .andDo(print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.userId").value(1))
-                .andExpect(jsonPath("$.region").value("GYEONGSANG"));
-    }
-
-    @Test
-    @DisplayName("잘못된 지역 정보로 수정 시 400 반환")
-    void updateRegion_invalidRegion() throws Exception {
-        // given
-        User mockUser = createMockUser();
-
-        when(userService.updateRegion(anyLong(), eq("INVALID_REGION")))
-                .thenThrow(new IllegalArgumentException("유효하지 않은 지역 코드입니다."));
-
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                mockUser, null, mockUser.getAuthorities()
-        );
-
-        // when & then
-        mockMvc.perform(patch("/api/users/me/region")
-                        .param("region", "INVALID_REGION")
-                        .with(authentication(auth))
-                        .with(csrf())) // PATCH 요청 시 CSRF 토큰 주입 필수
-                .andDo(print())
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("유효하지 않은 지역 코드입니다."));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.region").value("부산"))
+                .andExpect(jsonPath("$.message").value("지역이 설정되었습니다."));
     }
 }

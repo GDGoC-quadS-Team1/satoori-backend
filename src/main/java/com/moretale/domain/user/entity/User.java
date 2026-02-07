@@ -1,5 +1,6 @@
 package com.moretale.domain.user.entity;
 
+import com.moretale.domain.profile.entity.UserProfile;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -8,6 +9,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -19,8 +21,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
-// Spring Security UserDetails 구현
 public class User implements UserDetails {
 
     // 사용자 고유 ID (PK)
@@ -34,16 +34,18 @@ public class User implements UserDetails {
     private String email;
 
     // 사용자 닉네임
-    @Column(nullable = false)
+    @Column(length = 50)
     private String nickname;
 
-    // 사용자 지역 정보 (방언 추천, 통계 등에 사용)
+    // 사용자 지역 정보 (선택 사항)
+    @Column(length = 100)
     private String region;
 
     // 사용자 권한
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role;
+    @Builder.Default
+    private Role role = Role.USER;
 
     // 계정 생성 시각
     @CreationTimestamp
@@ -58,21 +60,27 @@ public class User implements UserDetails {
     @Column(name = "provider_id")
     private String providerId;
 
-    // UserDetails 구현 메서드
+    // 1:N 관계 설정: 한 명의 사용자는 여러 개의 자녀 프로필을 가질 수 있음
+    // mappedBy: UserProfile 엔티티에 있는 'user' 필드에 의해 매핑됨
+    // orphanRemoval = true: User가 삭제되거나 리스트에서 제거된 프로필은 DB에서도 삭제됨
+    @Builder.Default
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserProfile> profiles = new ArrayList<>();
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // 권한 정보를 Spring Security가 인식할 수 있는 SimpleGrantedAuthority로 변환 ('ROLE_USER', 'ROLE_ADMIN' 형태)
+        // "ROLE_USER" 또는 "ROLE_ADMIN" 형태로 권한 반환
         return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
     }
 
     @Override
     public String getPassword() {
-        return null;
+        return null; // OAuth2 전용 계정이므로 비밀번호 없음
     }
 
     @Override
     public String getUsername() {
-        return this.email;
+        return this.email; // 이메일을 식별자로 사용
     }
 
     @Override
