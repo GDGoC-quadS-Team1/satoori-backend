@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/satoori
+    url: jdbc:postgresql://localhost:5432/moretale
     username: postgres
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -44,9 +44,12 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000
 
-# AI 사투리 도사 외부 서버 URL 설정
-satoori:
-  langchain:
-    url: ${LANGCHAIN_URL:http://localhost:8081}
+# MoreTale AI 동화 생성 외부 서버 URL 설정
+moretale:
+  ai:
+    story-generation-url: ${STORY_GENERATION_URL:http://localhost:8081}
+    image-generation-url: ${IMAGE_GENERATION_URL:http://localhost:8082}
   tts:
-    url: ${TTS_URL:http://localhost:8082}
+    url: ${TTS_URL:http://localhost:8083}
+  quiz:
+    auto-generation-url: ${QUIZ_GENERATION_URL:http://localhost:8084}
