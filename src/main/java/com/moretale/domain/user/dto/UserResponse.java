@@ -1,25 +1,25 @@
 package com.moretale.domain.user.dto;
 
 import com.moretale.domain.user.entity.User;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Getter
-@Builder
+@Setter
+@NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class UserResponse {
-    private Long userId; // 사용자 고유 ID
-    private String email; // 이메일 (OAuth 계정)
-    private String nickname; // 사용자 닉네임
-    private String region; // 사용자 지역 정보
-    private String role; // 사용자 권한 (USER / ADMIN)
-    private LocalDateTime createdAt; // 가입 시각
 
-    // User 엔티티를 UserResponse DTO로 변환
-    public static UserResponse from(User user) {
+    private Long userId;
+    private String email;
+    private String nickname;
+    private String region;
+    private String role;
+    private LocalDateTime createdAt;
+
+    public static UserResponse fromEntity(User user) {
         return UserResponse.builder()
                 .userId(user.getUserId())
                 .email(user.getEmail())
