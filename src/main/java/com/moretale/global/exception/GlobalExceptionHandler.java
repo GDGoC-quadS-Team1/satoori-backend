@@ -1,74 +1,58 @@
 package com.moretale.global.exception;
 
-import com.moretale.domain.translate.service.LangChainClient.LangChainCallException;
-import com.moretale.domain.translate.service.TtsClient.TtsCallException;
-import org.springframework.http.HttpStatus;
+import com.moretale.global.common.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Dialect 관련 예외
-    @ExceptionHandler(DuplicateDialectException.class)
-    public ResponseEntity<Map<String, Object>> handleDuplicateDialect(DuplicateDialectException ex) {
-        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    // Custom Exception 처리
+    @ExceptionHandler(CustomException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) {
+        log.error("CustomException: {}", e.getMessage(), e);
+
+        ErrorCode errorCode = e.getErrorCode();
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.error(errorCode.getCode(), e.getMessage()));
     }
 
-    // Translate 기능 관련 예외
-    @ExceptionHandler(EmptyInputException.class)
-    public ResponseEntity<Map<String, Object>> handleEmptyInput(EmptyInputException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    // Validation Exception 처리
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+            MethodArgumentNotValidException e) {
+
+        log.error("ValidationException: {}", e.getMessage());
+
+        Map<String, String> errors = new HashMap<>();
+        e.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error("VALIDATION_ERROR", "입력값 검증 실패", errors));
     }
 
-    @ExceptionHandler(InvalidRegionException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidRegion(InvalidRegionException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
-    @ExceptionHandler(LangChainCallException.class)
-    public ResponseEntity<Map<String, Object>> handleLangChainFail(LangChainCallException ex) {
-        return buildResponse(
-                HttpStatus.BAD_GATEWAY,
-                "사투리 변환 서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
-        );
-    }
-
-    @ExceptionHandler(TtsCallException.class)
-    public ResponseEntity<Map<String, Object>> handleTtsFail(TtsCallException ex) {
-        return buildResponse(
-                HttpStatus.BAD_GATEWAY,
-                "음성 생성 서버에 문제가 발생했습니다. 텍스트 변환 결과는 정상입니다."
-        );
-    }
-
-    // 기타 예외
+    // 기타 Exception 처리
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleUnexpected(Exception ex) {
-        return buildResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "서버 내부 오류가 발생했습니다."
-        );
-    }
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
+        log.error("Exception: {}", e.getMessage(), e);
 
-    // 공통 응답 포맷
-    private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", LocalDateTime.now().toString());
-        body.put("status", status.value());
-        body.put("error", status.getReasonPhrase());
-        body.put("message", message);
-
-        return new ResponseEntity<>(body, status);
+        return ResponseEntity
+                .internalServerError()
+                .body(ApiResponse.error("INTERNAL_SERVER_ERROR", "서버 오류가 발생했습니다."));
     }
 }
