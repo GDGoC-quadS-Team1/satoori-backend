@@ -5,7 +5,6 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -16,8 +15,8 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    private final SecretKey secretKey; // 서명에 사용할 비밀 키
-    private final long jwtExpirationMs; // 토큰 만료 시간
+    private final SecretKey secretKey;
+    private final long jwtExpirationMs;
 
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
@@ -28,19 +27,11 @@ public class JwtTokenProvider {
 
     // JWT 토큰 생성
     public String generateToken(Authentication authentication) {
-        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
-
-        return Jwts.builder()
-                .subject(userPrincipal.getUsername())
-                .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(secretKey)
-                .compact();
+        String email = authentication.getName();
+        return generateTokenFromEmail(email);
     }
 
-    // 이메일로 토큰 생성
+    // 이메일로 JWT 토큰 생성
     public String generateTokenFromEmail(String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
@@ -49,7 +40,20 @@ public class JwtTokenProvider {
                 .subject(email)
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(secretKey)
+                .signWith(secretKey, Jwts.SIG.HS512)
+                .compact();
+    }
+
+    // userId로 JWT 토큰 생성
+    public String generateTokenFromUserId(Long userId) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .subject(String.valueOf(userId))
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(secretKey, Jwts.SIG.HS512)
                 .compact();
     }
 
@@ -64,7 +68,18 @@ public class JwtTokenProvider {
         return claims.getSubject();
     }
 
-    // 토큰 유효성 검증
+    // 토큰에서 userId 추출
+    public Long getUserIdFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        return Long.parseLong(claims.getSubject());
+    }
+
+    // JWT 토큰 유효성 검증
     public boolean validateToken(String authToken) {
         try {
             Jwts.parser()
@@ -72,8 +87,10 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(authToken);
             return true;
-        } catch (SecurityException | MalformedJwtException e) {
+        } catch (SecurityException e) {
             log.error("Invalid JWT signature: {}", e.getMessage());
+        } catch (MalformedJwtException e) {
+            log.error("Invalid JWT token: {}", e.getMessage());
         } catch (ExpiredJwtException e) {
             log.error("JWT token is expired: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
