@@ -1,11 +1,36 @@
-INSERT INTO "dialects" ("dialect", "standard", "meaning", "origin", "region", "example", "verified", "source", "latitude", "longitude", "created_at")
-SELECT '정구지', '부추', '김치나 무침에 쓰이는 채소류', '경상도 지역에서 오래 사용된 방언', '경상도', '정구지 넣고 전 부치자', true, '경상도 방언 사전 (2018)', 35.5, 128.5, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM "dialects" WHERE "dialect" = '정구지' AND "region" = '경상도');
+-- users 테이블 더미 데이터
+INSERT INTO users (email, nickname, region, role, provider, provider_id, created_at)
+SELECT 'testuser@example.com', 'testmom', '서울', 'USER', 'google', 'google-1234', NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE email = 'testuser@example.com'
+);
 
-INSERT INTO "dialects" ("dialect", "standard", "meaning", "origin", "region", "example", "verified", "source", "latitude", "longitude", "created_at")
-SELECT '혼저옵서예', '어서 오세요', '손님을 반갑게 맞이하는 인사말', '제주 방언의 대표 인사말', '제주도', '혼저옵서예, 들어오세요', true, '제주 향토어 사전', 33.5, 126.5, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM "dialects" WHERE "dialect" = '혼저옵서예' AND "region" = '제주도');
+INSERT INTO users (email, nickname, region, role, provider, provider_id, created_at)
+SELECT 'admin@moretale.com', 'admin', '서울', 'ADMIN', 'google', 'google-admin', NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE email = 'admin@moretale.com'
+);
 
-INSERT INTO "dialects" ("dialect", "standard", "meaning", "origin", "region", "example", "verified", "source", "latitude", "longitude", "created_at")
-SELECT '자시고', '드시고', '식사 권유 표현', '충청도 사투리', '충청도', '밥 자시고 가세요', true, '충청도 방언집', 36.5, 127.5, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM "dialects" WHERE "dialect" = '자시고' AND "region" = '충청도');
+-- user_profiles 테이블 더미 데이터
+INSERT INTO user_profiles (
+    user_id,
+    child_name,
+    child_age,
+    child_nationality,
+    parent_country,
+    primary_language,
+    secondary_language,
+    created_at
+)
+SELECT
+    u.user_id,
+    '민준',
+    6,
+    '대한민국',
+    '베트남',
+    'ko',
+    'vi',
+    NOW()
+FROM users u
+WHERE u.email = 'testuser@example.com'
+  AND NOT EXISTS (SELECT 1 FROM user_profiles WHERE user_id = u.user_id);
