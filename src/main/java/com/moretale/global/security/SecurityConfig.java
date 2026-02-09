@@ -45,6 +45,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/dictionary/**").permitAll()                 // 방언 사전 조회는 비회원 가능
                         .requestMatchers("/error").permitAll()                                             // Spring Boot 에러 페이지
 
+                        // 동화 생성 API (인증 필요)
+                        .requestMatchers("/api/stories/**").authenticated()                                // ✅ 추가
+
                         // 로그인 필요
                         .requestMatchers(HttpMethod.POST, "/api/dictionary/*/bookmark").authenticated()    // 북마크 추가
                         .requestMatchers(HttpMethod.DELETE, "/api/dictionary/*/bookmark").authenticated()  // 북마크 제거

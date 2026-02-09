@@ -1,6 +1,7 @@
 package com.moretale.domain.user.entity;
 
 import com.moretale.domain.profile.entity.UserProfile;
+import com.moretale.domain.story.entity.Story;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -66,6 +67,13 @@ public class User implements UserDetails {
     @Builder.Default
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserProfile> profiles = new ArrayList<>();
+
+    // [1:N 관계] 한 명의 사용자는 여러 개의 동화를 생성할 수 있음
+    // CascadeType.ALL: User 삭제 시 연관된 모든 Story 데이터도 함께 삭제
+    // orphanRemoval = true: User의 stories 리스트에서 제거된 Story 엔티티는 DB에서도 삭제
+    @Builder.Default
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Story> stories = new ArrayList<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
