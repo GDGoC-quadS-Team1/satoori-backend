@@ -45,8 +45,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/dictionary/**").permitAll()                 // 방언 사전 조회는 비회원 가능
                         .requestMatchers("/error").permitAll()                                             // Spring Boot 에러 페이지
 
+                        // TTS API 테스트용 (개발 환경에서만 permitAll, 운영에서는 authenticated로 변경)
+                        .requestMatchers("/api/tts/**").permitAll()                                        // TTS API 테스트
+
+                        // 업로드된 파일 접근 허용 (TTS 오디오 파일 다운로드용)
+                        .requestMatchers("/uploads/**").permitAll()
+
                         // 동화 생성 API (인증 필요)
-                        .requestMatchers("/api/stories/**").authenticated()                                // ✅ 추가
+                        .requestMatchers("/api/stories/**").authenticated()
 
                         // 로그인 필요
                         .requestMatchers(HttpMethod.POST, "/api/dictionary/*/bookmark").authenticated()    // 북마크 추가
