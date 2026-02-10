@@ -19,9 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional(readOnly = true)
 public class StoryService {
 
@@ -38,28 +38,46 @@ public class StoryService {
         User user = getUserByEmail(email);
         UserProfile profile = getUserProfile(user, request.getProfileId());
 
-        // 사용자 프로필에서 기본값 가져오기
-        String childName = request.getChildName() != null ?
-                request.getChildName() : profile.getChildName();
-        String primaryLang = request.getPrimaryLanguage() != null ?
-                request.getPrimaryLanguage() : profile.getPrimaryLanguage();
-        String secondaryLang = request.getSecondaryLanguage() != null ?
-                request.getSecondaryLanguage() : profile.getSecondaryLanguage();
+        String childName = request.getChildName() != null
+                ? request.getChildName()
+                : profile.getChildName();
 
-        // AI를 통한 동화 생성
+        String primaryLang = request.getPrimaryLanguage() != null
+                ? request.getPrimaryLanguage()
+                : profile.getPrimaryLanguage();
+
+        String secondaryLang = request.getSecondaryLanguage() != null
+                ? request.getSecondaryLanguage()
+                : profile.getSecondaryLanguage();
+
         StoryGenerateResponse response = aiStoryService.generateStory(
-                request.getPrompt(), childName, primaryLang, secondaryLang);
+                request.getPrompt(),
+                childName,
+                primaryLang,
+                secondaryLang
+        );
 
-        // 각 슬라이드에 TTS 추가
         response.getSlides().forEach(slide -> {
-            if (slide.getTextKr() != null) {
-                String audioUrlKr = ttsService.generateTTS(slide.getTextKr(), primaryLang + "-KR");
-                slide.setAudioUrlKr(audioUrlKr);
-            }
-            if (slide.getTextNative() != null) {
-                String audioUrlNative = ttsService.generateTTS(slide.getTextNative(),
-                        secondaryLang + "-" + secondaryLang.toUpperCase());
-                slide.setAudioUrlNative(audioUrlNative);
+            try {
+                if (slide.getTextKr() != null) {
+                    slide.setAudioUrlKr(
+                            ttsService.generateTTS(slide.getTextKr(), primaryLang + "-KR")
+                    );
+                }
+                if (slide.getTextNative() != null) {
+                    slide.setAudioUrlNative(
+                            ttsService.generateTTS(
+                                    slide.getTextNative(),
+                                    secondaryLang + "-" + secondaryLang.toUpperCase()
+                            )
+                    );
+                }
+            } catch (Exception e) {
+                log.error(
+                        "TTS 생성 중 오류 발생 (건너뜀) - slideOrder={}",
+                        slide.getOrder(),
+                        e
+                );
             }
         });
 
@@ -70,9 +88,23 @@ public class StoryService {
     @Transactional
     public StoryResponse saveStory(String email, StorySaveRequest request) {
         User user = getUserByEmail(email);
-        UserProfile profile = getUserProfile(user, request.getProfileId());
 
-        // Story 엔티티 생성
+        // 1. 프로필 존재 여부 확인 (유저 조건 없이 조회)
+        UserProfile profile = userProfileRepository.findById(request.getProfileId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROFILE_NOT_FOUND));
+
+        // 2. 프로필 소유권 검증
+        if (!profile.getUser().getUserId().equals(user.getUserId())) {
+            log.warn(
+                    "보안 위반 시도 - 유저 {}가 유저 {}의 프로필 {}을 사용하려고 함",
+                    user.getUserId(),
+                    profile.getUser().getUserId(),
+                    profile.getProfileId()
+            );
+            throw new BusinessException(ErrorCode.STORY_ACCESS_DENIED);
+        }
+
+        // 3. Story 엔티티 생성
         Story story = Story.builder()
                 .title(request.getTitle())
                 .prompt(request.getPrompt())
@@ -83,22 +115,30 @@ public class StoryService {
                 .isPublic(false)
                 .build();
 
-        // Slide 엔티티 생성 및 연관관계 설정
-        request.getSlides().forEach(slideReq -> {
-            Slide slide = Slide.builder()
-                    .order(slideReq.getOrder())
-                    .imageUrl(slideReq.getImageUrl())
-                    .textKr(slideReq.getTextKr())
-                    .textNative(slideReq.getTextNative())
-                    .audioUrlKr(slideReq.getAudioUrlKr())
-                    .audioUrlNative(slideReq.getAudioUrlNative())
-                    .build();
-            story.addSlide(slide);
-        });
+        // 4. Slide 엔티티 생성 및 연관관계 설정
+        if (request.getSlides() != null) {
+            request.getSlides().forEach(slideReq -> {
+                Slide slide = Slide.builder()
+                        .order(slideReq.getOrder())
+                        .imageUrl(slideReq.getImageUrl())
+                        .textKr(slideReq.getTextKr())
+                        .textNative(slideReq.getTextNative())
+                        .audioUrlKr(slideReq.getAudioUrlKr())
+                        .audioUrlNative(slideReq.getAudioUrlNative())
+                        .build();
+                story.addSlide(slide);
+            });
+        }
 
+        // 5. 저장
         Story savedStory = storyRepository.save(story);
-        log.info("동화 저장 완료 - storyId: {}, userId: {}, profileId: {}",
-                savedStory.getStoryId(), user.getUserId(), profile.getProfileId());
+        slideRepository.saveAll(savedStory.getSlides());
+
+        log.info(
+                "동화 저장 완료 - storyId={}, userId={}",
+                savedStory.getStoryId(),
+                user.getUserId()
+        );
 
         return StoryResponse.from(savedStory);
     }
@@ -109,7 +149,6 @@ public class StoryService {
         Story story = storyRepository.findByIdWithSlides(storyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
-        // 권한 체크: 본인 동화이거나 공개된 동화만 조회 가능
         if (!story.getUser().equals(user) && !story.getIsPublic()) {
             throw new BusinessException(ErrorCode.STORY_ACCESS_DENIED);
         }
@@ -120,18 +159,16 @@ public class StoryService {
     // 내 동화 목록 조회
     public List<StoryListResponse> getMyStories(String email) {
         User user = getUserByEmail(email);
-        List<Story> stories = storyRepository.findByUserOrderByCreatedAtDesc(user);
-
-        return stories.stream()
+        return storyRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
                 .map(StoryListResponse::from)
                 .collect(Collectors.toList());
     }
 
     // 공개 동화 목록 조회
     public List<StoryListResponse> getPublicStories() {
-        List<Story> stories = storyRepository.findByIsPublicTrueOrderByCreatedAtDesc();
-
-        return stories.stream()
+        return storyRepository.findByIsPublicTrueOrderByCreatedAtDesc()
+                .stream()
                 .map(StoryListResponse::from)
                 .collect(Collectors.toList());
     }
@@ -144,7 +181,6 @@ public class StoryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
         story.setIsPublic(request.getIsPublic());
-        log.info("동화 공유 설정 변경 - storyId: {}, isPublic: {}", storyId, request.getIsPublic());
     }
 
     // 동화 삭제
@@ -155,7 +191,6 @@ public class StoryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
 
         storyRepository.delete(story);
-        log.info("동화 삭제 완료 - storyId: {}, userId: {}", storyId, user.getUserId());
     }
 
     // 이메일로 사용자 조회
@@ -164,18 +199,14 @@ public class StoryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
-    // 사용자 프로필 조회 (profileId 있으면 해당 프로필, 없으면 최신 프로필)
     private UserProfile getUserProfile(User user, Long profileId) {
         if (profileId != null) {
-            // 특정 프로필 ID로 조회 (권한 체크 포함)
-            log.info("특정 프로필 조회 - userId: {}, profileId: {}", user.getUserId(), profileId);
-            return userProfileRepository.findByProfileIdAndUser_UserId(profileId, user.getUserId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.PROFILE_NOT_FOUND));
-        } else {
-            // 프로필 ID가 없으면 가장 최근 프로필 사용
-            log.info("최근 프로필 자동 선택 - userId: {}", user.getUserId());
-            return userProfileRepository.findFirstByUserOrderByCreatedAtDesc(user)
+            return userProfileRepository
+                    .findByProfileIdAndUser_UserId(profileId, user.getUserId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.PROFILE_NOT_FOUND));
         }
+        return userProfileRepository
+                .findFirstByUserOrderByCreatedAtDesc(user)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROFILE_NOT_FOUND));
     }
 }

@@ -4,7 +4,7 @@ plugins {
     id 'java'
 }
 
-group = 'com.satoori'
+group = 'com.moretale'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '21'
 targetCompatibility = '21'
@@ -24,6 +24,11 @@ dependencies {
     // Database
     runtimeOnly 'org.postgresql:postgresql'
 
+    // Google Cloud Services (Storage & TTS)
+    implementation 'com.google.cloud:google-cloud-storage:2.36.1'
+    implementation 'com.google.cloud:google-cloud-texttospeech:2.35.0'
+    implementation 'com.google.protobuf:protobuf-java:3.25.1'
+
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
@@ -39,6 +44,7 @@ dependencies {
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 // Java 컴파일 옵션

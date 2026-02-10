@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
@@ -113,7 +114,7 @@ public class StoryController {
         return ApiResponse.success(null, "동화가 삭제되었습니다.");
     }
 
-    // Principal 객체에서 email 추출 (JWT / OAuth2 공통 처리)
+    // Principal에서 email 추출 (JWT UserPrincipal / OAuth2User / 테스트용 @WithMockUser)
     private String getEmailFromPrincipal(Object principal) {
         if (principal == null) {
             log.warn("Principal이 null입니다.");
@@ -134,6 +135,11 @@ public class StoryController {
                 throw new BusinessException(ErrorCode.USER_NOT_FOUND);
             }
             return email;
+        }
+
+        // 3. 테스트 코드 (@WithMockUser) 대응
+        if (principal instanceof User) {
+            return ((User) principal).getUsername();
         }
 
         log.error("지원하지 않는 Principal 타입: {}", principal.getClass().getName());

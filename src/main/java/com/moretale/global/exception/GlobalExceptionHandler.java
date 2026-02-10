@@ -15,10 +15,22 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // 비즈니스 로직 예외 처리
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        log.error("BusinessException: {}", e.getMessage());
+
+        ErrorCode errorCode = e.getErrorCode();
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.error(errorCode.getCode(), e.getMessage()));
+    }
+
     // Custom Exception 처리
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) {
-        log.error("CustomException: {}", e.getMessage(), e);
+        log.error("CustomException: {}", e.getMessage());
 
         ErrorCode errorCode = e.getErrorCode();
 
@@ -49,7 +61,8 @@ public class GlobalExceptionHandler {
     // 기타 Exception 처리
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
-        log.error("Exception: {}", e.getMessage(), e);
+        // 상세 스택 트레이스는 로그로 남겨 추적 가능하게 함
+        log.error("Unexpected Exception: ", e);
 
         return ResponseEntity
                 .internalServerError()
