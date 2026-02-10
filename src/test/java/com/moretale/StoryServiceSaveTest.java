@@ -5,6 +5,7 @@ import com.moretale.domain.profile.repository.UserProfileRepository;
 import com.moretale.domain.story.dto.StoryResponse;
 import com.moretale.domain.story.dto.StorySaveRequest;
 import com.moretale.domain.story.entity.Story;
+import com.moretale.domain.story.repository.SlideRepository;
 import com.moretale.domain.story.repository.StoryRepository;
 import com.moretale.domain.story.service.StoryService;
 import com.moretale.domain.user.entity.User;
@@ -35,6 +36,9 @@ public class StoryServiceSaveTest {
     private StoryRepository storyRepository;
 
     @Mock
+    private SlideRepository slideRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -63,9 +67,12 @@ public class StoryServiceSaveTest {
     @Test
     @DisplayName("동화 저장 요청 시 Story와 Slide 연관 관계가 정상적으로 맺어지며 저장된다")
     void saveStorySuccessTest() {
-        // [수정 포인트 1] SlideSaveRequest 대신 StorySaveRequest 내부의 SlideRequest 사용
+        // Given
         StorySaveRequest.SlideRequest slideReq1 = StorySaveRequest.SlideRequest.builder()
-                .order(1).textKr("사자").imageUrl("img1.png").build();
+                .order(1)
+                .textKr("사자")
+                .imageUrl("img1.png")
+                .build();
 
         StorySaveRequest request = StorySaveRequest.builder()
                 .title("동물 친구들")
@@ -75,19 +82,28 @@ public class StoryServiceSaveTest {
                 .build();
 
         given(userRepository.findByEmail(email)).willReturn(Optional.of(user));
-        // [수정 포인트 2] 메서드명을 프로젝트의 실제 이름인 findByProfileIdAndUser_UserId 등으로 매칭
-        given(userProfileRepository.findByProfileIdAndUser_UserId(2L, 3L)).willReturn(Optional.of(profile));
-        given(storyRepository.save(any(Story.class))).willAnswer(invocation -> invocation.getArgument(0));
 
+        // 서비스 로직 변경에 맞춰 findById 사용
+        given(userProfileRepository.findById(2L)).willReturn(Optional.of(profile));
+
+        given(storyRepository.save(any(Story.class))).willAnswer(invocation -> {
+            Story story = invocation.getArgument(0);
+            return story;
+        });
+
+        // When
         StoryResponse result = storyService.saveStory(email, request);
 
+        // Then
         assertThat(result.getTitle()).isEqualTo("동물 친구들");
+        assertThat(result.getChildName()).isEqualTo("유찬");
         verify(storyRepository).save(any(Story.class));
     }
 
     @Test
     @DisplayName("동화 저장 시 이중언어 데이터가 누락 없이 매핑되어야 한다")
     void saveStory_DualLanguageMapping_Success() {
+        // Given
         StorySaveRequest.SlideRequest slideReq = StorySaveRequest.SlideRequest.builder()
                 .order(1)
                 .textKr("유찬이는 1번째 장면을 봤어요.")
@@ -104,13 +120,19 @@ public class StoryServiceSaveTest {
                 .build();
 
         given(userRepository.findByEmail(email)).willReturn(Optional.of(user));
-        given(userProfileRepository.findByProfileIdAndUser_UserId(2L, 3L)).willReturn(Optional.of(profile));
+
+        // 서비스 로직 변경에 맞춰 findById 사용
+        given(userProfileRepository.findById(2L)).willReturn(Optional.of(profile));
+
         given(storyRepository.save(any(Story.class))).willAnswer(invocation -> invocation.getArgument(0));
 
+        // When
         StoryResponse response = storyService.saveStory(email, request);
 
+        // Then
         assertThat(response.getPrimaryLanguage()).isEqualTo("ko");
         assertThat(response.getSecondaryLanguage()).isEqualTo("zh");
         assertThat(response.getSlides().get(0).getTextNative()).isEqualTo("Sample text in zh");
+        assertThat(response.getSlides().get(0).getAudioUrlKr()).isEqualTo("https://moretale.ai/ko.mp3");
     }
 }

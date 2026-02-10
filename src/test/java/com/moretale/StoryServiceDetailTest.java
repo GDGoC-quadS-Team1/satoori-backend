@@ -6,6 +6,7 @@ import com.moretale.domain.story.dto.StoryResponse;
 import com.moretale.domain.story.dto.StorySaveRequest;
 import com.moretale.domain.story.dto.StoryShareRequest;
 import com.moretale.domain.story.entity.Story;
+import com.moretale.domain.story.repository.SlideRepository;
 import com.moretale.domain.story.repository.StoryRepository;
 import com.moretale.domain.story.service.StoryService;
 import com.moretale.domain.user.entity.User;
@@ -39,6 +40,8 @@ public class StoryServiceDetailTest {
     @Mock
     private StoryRepository storyRepository;
     @Mock
+    private SlideRepository slideRepository;
+    @Mock
     private UserRepository userRepository;
     @Mock
     private UserProfileRepository userProfileRepository;
@@ -52,7 +55,13 @@ public class StoryServiceDetailTest {
     void setUp() {
         user = User.builder().userId(1L).email("test@example.com").build();
         otherUser = User.builder().userId(2L).email("other@example.com").build();
-        profile = UserProfile.builder().profileId(3L).childName("민지").user(user).build();
+
+        // 유찬 대신 민지 프로필 (ID: 3, 소유자: user)
+        profile = UserProfile.builder()
+                .profileId(3L)
+                .childName("민지")
+                .user(user)
+                .build();
 
         story = Story.builder()
                 .storyId(100L)
@@ -77,7 +86,11 @@ public class StoryServiceDetailTest {
                 .build();
 
         given(userRepository.findByEmail(anyString())).willReturn(Optional.of(user));
-        given(userProfileRepository.findByProfileIdAndUser_UserId(anyLong(), anyLong())).willReturn(Optional.of(profile));
+
+        // findByProfileIdAndUser_UserId 대신 findById 사용
+        given(userProfileRepository.findById(3L)).willReturn(Optional.of(profile));
+
+        // save 호출 시 인자로 받은 객체 그대로 반환하도록 설정
         given(storyRepository.save(any(Story.class))).willReturn(story);
 
         // when
