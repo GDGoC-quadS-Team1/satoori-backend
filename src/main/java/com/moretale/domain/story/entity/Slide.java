@@ -24,7 +24,7 @@ public class Slide {
     @Column(name = "order_num", nullable = false)
     private Integer order;
 
-    @Column(name = "image_url", columnDefinition = "TEXT")
+    @Column(name = "image_url", length = 500)
     private String imageUrl;
 
     @Column(name = "text_kr", columnDefinition = "TEXT")
@@ -33,9 +33,9 @@ public class Slide {
     @Column(name = "text_native", columnDefinition = "TEXT")
     private String textNative;
 
-    @Column(name = "audio_url_kr", columnDefinition = "TEXT")
+    @Column(name = "audio_url_kr", length = 500)
     private String audioUrlKr;
 
-    @Column(name = "audio_url_native", columnDefinition = "TEXT")
+    @Column(name = "audio_url_native", length = 500)
     private String audioUrlNative;
 }
