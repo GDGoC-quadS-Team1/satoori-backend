@@ -1,5 +1,6 @@
 package com.moretale.global.security.oauth;
 
+import com.moretale.domain.profile.repository.UserProfileRepository;
 import com.moretale.global.security.jwt.JwtTokenProvider;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,9 +19,13 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private final JwtTokenProvider jwtTokenProvider; // JWT 토큰 생성하는 Provider
+    private final JwtTokenProvider jwtTokenProvider;
+    private final UserProfileRepository userProfileRepository;
 
-    private static final String REDIRECT_URI = "http://localhost:8080/"; // 로그인 성공 후 토큰을 전달할 프론트엔드 URL
+    // 프론트엔드 URL
+    private static final String FRONTEND_URL = "http://localhost:8080";
+    private static final String ONBOARDING_PATH = "/onboarding"; // 온보딩 페이지 경로
+    private static final String HOME_PATH = "/"; // 메인 홈 페이지 경로
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -28,30 +33,43 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                                         Authentication authentication)
             throws IOException, ServletException {
 
-        // 1. Principal 객체를 CustomOAuth2User로 캐스팅 (ClassCastException 해결)
+        // 1. CustomOAuth2User에서 사용자 정보 추출
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
-
-        // 2. CustomOAuth2User 내부에 구현된 메서드를 통해 userId와 email 추출
         Long userId = oAuth2User.getUserId();
         String email = oAuth2User.getEmail();
 
-        // 3. JWT 토큰 생성 (userId 기반)
+        // 2. JWT 토큰 생성
         String token = jwtTokenProvider.generateTokenFromUserId(userId);
 
         log.info("OAuth2 로그인 성공 - userId: {}, email: {}", userId, email);
         log.info("JWT Token 생성 완료: {}", token);
 
-        // 4. 리다이렉트 URL 생성
-        // 프론트엔드에서 토큰을 인지할 수 있도록 쿼리 파라미터에 token과 userId를 포함
-        String targetUrl = UriComponentsBuilder.fromUriString(REDIRECT_URI)
+        // 3. 프로필 존재 여부 확인
+        boolean hasProfile = userProfileRepository.existsByUser_UserId(userId);
+
+        // 4. 리다이렉트 URL 결정
+        String redirectPath;
+        if (hasProfile) {
+            // 프로필이 있으면 메인 홈으로
+            redirectPath = HOME_PATH;
+            log.info("기존 사용자 - 메인 홈으로 이동: userId={}", userId);
+        } else {
+            // 프로필이 없으면 온보딩 페이지로
+            redirectPath = ONBOARDING_PATH;
+            log.info("신규 사용자 - 온보딩 페이지로 이동: userId={}", userId);
+        }
+
+        // 5. 리다이렉트 URL 생성 (token, userId, hasProfile 전달)
+        String targetUrl = UriComponentsBuilder.fromUriString(FRONTEND_URL + redirectPath)
                 .queryParam("token", token)
                 .queryParam("userId", userId)
+                .queryParam("hasProfile", hasProfile)
                 .build()
                 .toUriString();
 
         log.info("리다이렉트 실행 URL: {}", targetUrl);
 
-        // 5. 실제 리다이렉트 수행
+        // 6. 리다이렉트 수행
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 }
