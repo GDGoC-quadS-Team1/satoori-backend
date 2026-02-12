@@ -11,16 +11,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserProfileResponse {
+public class OnboardingProfileResponse {
 
     private Long profileId;
     private Long userId;
     private String nickname;
     private String childName;
-    private Integer childAge;
-
-    // === 온보딩 상세 필드 추가 ===
     private AgeGroup ageGroup;
+    private Integer childAge; // 실제 나이 (대표값)
 
     // 언어 설정
     private String firstLanguage;
@@ -42,31 +40,26 @@ public class UserProfileResponse {
     private StoryPreference storyPreference;
     private String customStoryPreference;
 
+    // 부가 정보
     private String childNationality;
     private String parentCountry;
 
-    // 하위 호환성 필드 (Deprecated)
-    @Deprecated
-    private String primaryLanguage;
-
-    @Deprecated
-    private String secondaryLanguage;
-
+    // 생성/수정 시각
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static UserProfileResponse fromEntity(UserProfile profile) {
+    public static OnboardingProfileResponse fromEntity(UserProfile profile) {
         if (profile == null || profile.getUser() == null) {
             throw new IllegalArgumentException("Profile or User cannot be null");
         }
 
-        return UserProfileResponse.builder()
+        return OnboardingProfileResponse.builder()
                 .profileId(profile.getProfileId())
                 .userId(profile.getUser().getUserId())
                 .nickname(profile.getUser().getNickname())
                 .childName(profile.getChildName())
-                .childAge(profile.getChildAge())
                 .ageGroup(profile.getAgeGroup())
+                .childAge(profile.getChildAge())
                 .firstLanguage(profile.getFirstLanguage())
                 .firstLanguageProficiency(profile.getFirstLanguageProficiency())
                 .secondLanguage(profile.getSecondLanguage())
@@ -81,8 +74,6 @@ public class UserProfileResponse {
                 .customStoryPreference(profile.getCustomStoryPreference())
                 .childNationality(profile.getChildNationality())
                 .parentCountry(profile.getParentCountry())
-                .primaryLanguage(profile.getPrimaryLanguage())
-                .secondaryLanguage(profile.getSecondaryLanguage())
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())
                 .build();
