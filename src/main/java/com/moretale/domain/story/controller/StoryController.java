@@ -2,147 +2,169 @@ package com.moretale.domain.story.controller;
 
 import com.moretale.domain.story.dto.*;
 import com.moretale.domain.story.service.StoryService;
-import com.moretale.global.exception.BusinessException;
-import com.moretale.global.exception.ErrorCode;
-import com.moretale.global.response.ApiResponse;
-import com.moretale.global.security.UserPrincipal;
+import com.moretale.global.common.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Tag(name = "Story", description = "동화 관리 API")
+@Slf4j
 @RestController
 @RequestMapping("/api/stories")
 @RequiredArgsConstructor
-@Slf4j
 public class StoryController {
 
     private final StoryService storyService;
 
-    // 동화 생성 (AI 연동)
+    // 온보딩 기반 동화 생성 초기값 조회
+    // GET /api/stories/init?profileId=1
+    @Operation(summary = "동화 생성 초기값 조회", description = "온보딩 데이터를 기반으로 동화 생성 폼의 초기값을 반환합니다.")
+    @GetMapping("/init")
+    public ApiResponse<StoryInitResponse> getStoryInitData(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(name = "profileId", required = false) Long profileId  // 🔧 수정: name 명시
+    ) {
+        log.info("동화 초기값 조회 요청 - email={}, profileId={}",
+                userDetails.getUsername(), profileId);
+
+        StoryInitResponse response = storyService.getStoryInitData(
+                userDetails.getUsername(),
+                profileId
+        );
+
+        return ApiResponse.success(response, "동화 생성 초기값 조회 성공");
+    }
+
+    // 온보딩 직후 자동 동화 생성 (추천 전래동화 기반)
+    // POST /api/stories/auto-generate
+    @Operation(summary = "자동 동화 생성", description = "온보딩 데이터를 기반으로 추천 전래동화를 자동 생성합니다.")
+    @PostMapping("/auto-generate")
+    public ApiResponse<StoryGenerateResponse> autoGenerateStory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(name = "profileId", required = false) Long profileId  // 🔧 수정: name 명시
+    ) {
+        log.info("자동 동화 생성 요청 - email={}, profileId={}",
+                userDetails.getUsername(), profileId);
+
+        StoryGenerateResponse response = storyService.autoGenerateStory(
+                userDetails.getUsername(),
+                profileId
+        );
+
+        return ApiResponse.success(response, "동화 자동 생성 완료");
+    }
+
+    // 동화 생성 (사용자 입력 기반)
+    // POST /api/stories/generate
+    @Operation(summary = "동화 생성", description = "사용자 프롬프트를 기반으로 이중언어 동화를 생성합니다.")
     @PostMapping("/generate")
     public ApiResponse<StoryGenerateResponse> generateStory(
-            @AuthenticationPrincipal Object principal,
-            @Valid @RequestBody StoryGenerateRequest request) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody StoryGenerateRequest request
+    ) {
+        log.info("동화 생성 요청 - email={}, prompt={}",
+                userDetails.getUsername(), request.getPrompt());
 
-        String email = getEmailFromPrincipal(principal);
-        log.info("동화 생성 요청 - email: {}, prompt: {}", email, request.getPrompt());
+        StoryGenerateResponse response = storyService.generateStory(
+                userDetails.getUsername(),
+                request
+        );
 
-        StoryGenerateResponse response = storyService.generateStory(email, request);
-        return ApiResponse.success(response, "동화가 생성되었습니다.");
+        return ApiResponse.success(response, "동화 생성 완료");
     }
 
     // 동화 저장
+    // POST /api/stories
+    @Operation(summary = "동화 저장", description = "생성된 동화를 데이터베이스에 저장합니다.")
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<StoryResponse> saveStory(
-            @AuthenticationPrincipal Object principal,
-            @Valid @RequestBody StorySaveRequest request) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody StorySaveRequest request
+    ) {
+        log.info("동화 저장 요청 - email={}, title={}",
+                userDetails.getUsername(), request.getTitle());
 
-        String email = getEmailFromPrincipal(principal);
-        log.info("동화 저장 요청 - email: {}, title: {}", email, request.getTitle());
+        StoryResponse response = storyService.saveStory(
+                userDetails.getUsername(),
+                request
+        );
 
-        StoryResponse response = storyService.saveStory(email, request);
-        return ApiResponse.success(response, "동화가 저장되었습니다.");
+        return ApiResponse.success(response, "동화 저장 완료");
+    }
+
+    // 동화 상세 조회
+    // GET /api/stories/{storyId}
+    @Operation(summary = "동화 상세 조회", description = "특정 동화의 상세 정보를 조회합니다.")
+    @GetMapping("/{storyId}")
+    public ApiResponse<StoryResponse> getStoryDetail(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable(name = "storyId") Long storyId  // 🔧 수정: name 명시
+    ) {
+        StoryResponse response = storyService.getStoryDetail(
+                userDetails.getUsername(),
+                storyId
+        );
+
+        return ApiResponse.success(response);
     }
 
     // 내 동화 목록 조회
+    // GET /api/stories/my
+    @Operation(summary = "내 동화 목록 조회", description = "현재 사용자가 생성한 모든 동화를 조회합니다.")
     @GetMapping("/my")
     public ApiResponse<List<StoryListResponse>> getMyStories(
-            @AuthenticationPrincipal Object principal) {
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        List<StoryListResponse> response = storyService.getMyStories(
+                userDetails.getUsername()
+        );
 
-        String email = getEmailFromPrincipal(principal);
-        log.info("내 동화 목록 조회 - email: {}", email);
-
-        List<StoryListResponse> response = storyService.getMyStories(email);
         return ApiResponse.success(response);
     }
 
     // 공개 동화 목록 조회
+    // GET /api/stories/public
+    @Operation(summary = "공개 동화 목록 조회", description = "공개 설정된 모든 동화를 조회합니다.")
     @GetMapping("/public")
     public ApiResponse<List<StoryListResponse>> getPublicStories() {
-        log.info("공개 동화 목록 조회");
-
         List<StoryListResponse> response = storyService.getPublicStories();
         return ApiResponse.success(response);
     }
 
-    // 특정 동화 상세 조회
-    @GetMapping("/{storyId}")
-    public ApiResponse<StoryResponse> getStoryDetail(
-            @AuthenticationPrincipal Object principal,
-            @PathVariable("storyId") Long storyId) {
-
-        String email = getEmailFromPrincipal(principal);
-        log.info("동화 상세 조회 - email: {}, storyId: {}", email, storyId);
-
-        StoryResponse response = storyService.getStoryDetail(email, storyId);
-        return ApiResponse.success(response);
-    }
-
-    // 동화 공유 여부 변경
+    // 동화 공유 설정 변경
+    // PATCH /api/stories/{storyId}/share
+    @Operation(summary = "동화 공유 설정", description = "동화의 공개/비공개 설정을 변경합니다.")
     @PatchMapping("/{storyId}/share")
     public ApiResponse<Void> updateStoryShareStatus(
-            @AuthenticationPrincipal Object principal,
-            @PathVariable("storyId") Long storyId,
-            @Valid @RequestBody StoryShareRequest request) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable(name = "storyId") Long storyId,  // 🔧 수정: name 명시
+            @Valid @RequestBody StoryShareRequest request
+    ) {
+        storyService.updateStoryShareStatus(
+                userDetails.getUsername(),
+                storyId,
+                request
+        );
 
-        String email = getEmailFromPrincipal(principal);
-        log.info("동화 공유 설정 변경 - email: {}, storyId: {}, isPublic: {}",
-                email, storyId, request.getIsPublic());
-
-        storyService.updateStoryShareStatus(email, storyId, request);
-        return ApiResponse.success(null, "공유 설정이 변경되었습니다.");
+        return ApiResponse.success(null, "공유 설정 변경 완료");
     }
 
     // 동화 삭제
+    // DELETE /api/stories/{storyId}
+    @Operation(summary = "동화 삭제", description = "특정 동화를 삭제합니다.")
     @DeleteMapping("/{storyId}")
     public ApiResponse<Void> deleteStory(
-            @AuthenticationPrincipal Object principal,
-            @PathVariable("storyId") Long storyId) {
-
-        String email = getEmailFromPrincipal(principal);
-        log.info("동화 삭제 요청 - email: {}, storyId: {}", email, storyId);
-
-        storyService.deleteStory(email, storyId);
-        return ApiResponse.success(null, "동화가 삭제되었습니다.");
-    }
-
-    // Principal에서 email 추출 (JWT UserPrincipal / OAuth2User / 테스트용 @WithMockUser)
-    private String getEmailFromPrincipal(Object principal) {
-        if (principal == null) {
-            log.warn("Principal이 null입니다.");
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-
-        // 1. JWT 필터를 통한 인증인 경우 (UserPrincipal)
-        if (principal instanceof UserPrincipal) {
-            return ((UserPrincipal) principal).getEmail();
-        }
-
-        // 2. OAuth2 로그인 직후 세션 인증인 경우 (OAuth2User)
-        if (principal instanceof OAuth2User) {
-            OAuth2User oAuth2User = (OAuth2User) principal;
-            String email = oAuth2User.getAttribute("email");
-            if (email == null) {
-                log.warn("OAuth2User의 email 속성이 null입니다.");
-                throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-            }
-            return email;
-        }
-
-        // 3. 테스트 코드 (@WithMockUser) 대응
-        if (principal instanceof User) {
-            return ((User) principal).getUsername();
-        }
-
-        log.error("지원하지 않는 Principal 타입: {}", principal.getClass().getName());
-        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable(name = "storyId") Long storyId  // 🔧 수정: name 명시
+    ) {
+        storyService.deleteStory(userDetails.getUsername(), storyId);
+        return ApiResponse.success(null, "동화 삭제 완료");
     }
 }

@@ -1,6 +1,5 @@
 package com.moretale.domain.profile.entity;
 
-import com.moretale.domain.profile.dto.OnboardingProfileRequest.*;
 import com.moretale.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
