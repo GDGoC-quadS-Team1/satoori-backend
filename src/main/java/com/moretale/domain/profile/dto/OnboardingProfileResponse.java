@@ -1,6 +1,9 @@
 package com.moretale.domain.profile.dto;
 
-import com.moretale.domain.profile.dto.OnboardingProfileRequest.*;
+import com.moretale.domain.profile.entity.AgeGroup;
+import com.moretale.domain.profile.entity.FamilyStructure;
+import com.moretale.domain.profile.entity.LanguageProficiency;
+import com.moretale.domain.profile.entity.StoryPreference;
 import com.moretale.domain.profile.entity.UserProfile;
 import lombok.*;
 
